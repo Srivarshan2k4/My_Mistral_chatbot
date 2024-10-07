@@ -4,7 +4,6 @@ langchain
 gdown
 PyPDF2
 SpeechRecognition
-pyttsx3
 faiss-cpu
 sentence-transformers
 langchain-community
