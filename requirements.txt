@@ -1,11 +1,12 @@
-streamlit
+streamlit==1.12.0
 streamlit-chat
-langchain
+langchain==0.0.2
 gdown
 PyPDF2
-SpeechRecognition
+speechrecognition==3.8.1
 faiss-cpu
 sentence-transformers
 langchain-community
-gTTS
+gtts==2.2.3
 pypdf
+llama-cpp
