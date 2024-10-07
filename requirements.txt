@@ -8,4 +8,4 @@ faiss-cpu
 sentence-transformers
 langchain-community
 gTTS
-
+pypdf
