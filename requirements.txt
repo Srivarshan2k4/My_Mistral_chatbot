@@ -1,6 +1,6 @@
 streamlit==1.12.0
 streamlit-chat
-langchain==0.0.2
+langchain
 gdown
 PyPDF2
 speechrecognition==3.8.1
@@ -10,3 +10,8 @@ langchain-community
 gtts==2.2.3
 pypdf
 llama-cpp-python
+torch
+accelerate
+pyttsx3
+tiktoken
+huggingface-hub
