@@ -8,3 +8,4 @@ pyttsx3
 faiss-cpu
 sentence-transformers
 langchain-community
+espeak-ng
