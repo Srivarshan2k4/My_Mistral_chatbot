@@ -10,7 +10,21 @@ from langchain.document_loaders import PyPDFLoader
 import os
 import tempfile
 import speech_recognition as sr
+import pyttsx3
+import gdown
+import os
 
+def download_model_from_gdrive():
+    model_output_path = './models/mistral_model.gguf'
+
+    # Ensure the './models' directory exists
+    if not os.path.exists('./models'):
+        os.makedirs('./models')
+
+    gdrive_url = 'https://drive.google.com/uc?id=1cJmfRMF_d0TkkaAYbEf_1SieEAJLaDAn'
+    gdown.download(gdrive_url, model_output_path, quiet=False)
+
+    return model_output_path
 # Initialize session state
 def initialize_session_state():
     if 'history' not in st.session_state:
@@ -26,6 +40,16 @@ def initialize_session_state():
         st.session_state['embeddings'] = None  # Initialize embeddings
         st.session_state['vector_store'] = None  # Initialize vector store
         st.session_state['chain'] = None  # Initialize chain
+
+# Initialize pyttsx3 for text-to-speech
+def init_tts():
+    engine = pyttsx3.init()
+    return engine
+
+# Function to use TTS to read the chatbot's response
+def speak_text(text, tts_engine):
+    tts_engine.say(text)
+    tts_engine.runAndWait()
 
 # Function to capture voice input using speech recognition
 def capture_voice_input():
@@ -53,7 +77,7 @@ def conversation_chat(query, chain, history):
     return result["answer"]
 
 # Display the chat history and manage user input (text and voice)
-def display_chat_history(chain):
+def display_chat_history(chain, tts_engine):
     reply_container = st.container()
     container = st.container()
 
@@ -76,20 +100,25 @@ def display_chat_history(chain):
             st.session_state['past'].append(user_input)
             st.session_state['generated'].append(output)
 
-    # Display chat history
+    # Display chat history with a speaker icon for TTS
     if st.session_state['generated']:
         with reply_container:
             for i in range(len(st.session_state['generated'])):
-                message(st.session_state["past"][i], is_user=True, key=str(i) + '_user', avatar_style="thumbs")
-                message(st.session_state['generated'][i], key=str(i), avatar_style="fun-emoji")
+                user_message = st.session_state["past"][i]
+                bot_response = st.session_state['generated'][i]
+
+                # Display user and bot messages
+                message(user_message, is_user=True, key=str(i) + '_user', avatar_style="thumbs")
+                message(bot_response, key=str(i), avatar_style="fun-emoji")
+
+                # Add speaker icon for TTS output
+                if st.button("🔊", key=f"tts_button_{i}"):
+                    speak_text(bot_response, tts_engine)  # Use TTS to read the response
 
 # Create a conversational chain for the chatbot
 def create_conversational_chain(vector_store):
-    model_path = "E:/users/sriva/mistral_llm/mistral-7b-instruct-v0.1.Q4_K_M-001.gguf"  # Updated model path
+    model_path = download_model_from_gdrive()  # Use the model path from Google Drive
     
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"The model file does not exist at: {model_path}")
-
     try:
         llm = LlamaCpp(
             streaming=True,
@@ -143,6 +172,8 @@ def main():
     add_custom_css()  # Add custom CSS for "The Boys" theme
     st.title("Multi-PDF ChatBot using Mistral-7B-Instruct :books:")
     
+    tts_engine = init_tts()  # Initialize the TTS engine
+
     st.sidebar.title("Document Processing")
     uploaded_files = st.sidebar.file_uploader("Upload files", accept_multiple_files=True)
 
@@ -166,8 +197,7 @@ def main():
         text_chunks = text_splitter.split_documents(text)
 
         if st.session_state['embeddings'] is None:
-            st.session_state['embeddings'] = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2", 
-                                                                   model_kwargs={'device': 'cpu'})
+            st.session_state['embeddings'] = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",model_kwargs={'device': 'cpu'})
 
         if st.session_state['vector_store'] is None:
             st.session_state['vector_store'] = FAISS.from_documents(text_chunks, embedding=st.session_state['embeddings'])
@@ -175,7 +205,7 @@ def main():
         if st.session_state['chain'] is None:
             st.session_state['chain'] = create_conversational_chain(st.session_state['vector_store'])
 
-        display_chat_history(st.session_state['chain'])
+        display_chat_history(st.session_state['chain'], tts_engine)  # Pass TTS engine to the chat history display
 
 if __name__ == "__main__":
     main()
