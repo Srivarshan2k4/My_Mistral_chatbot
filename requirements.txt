@@ -9,4 +9,4 @@ sentence-transformers
 langchain-community
 gtts==2.2.3
 pypdf
-llama-cpp
+llama-cpp-python
