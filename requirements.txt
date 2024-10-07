@@ -14,4 +14,6 @@ accelerate
 pyttsx3
 tiktoken
 huggingface-hub
+transformers
+requests
 
