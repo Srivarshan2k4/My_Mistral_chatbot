@@ -21,8 +21,11 @@ def download_model_from_gdrive():
         os.makedirs('./models')
 
     gdrive_url = 'https://drive.google.com/uc?id=1cJmfRMF_d0TkkaAYbEf_1SieEAJLaDAn'
-    gdown.download(gdrive_url, model_output_path, quiet=False)
-
+    try:
+        gdown.download(gdrive_url, model_output_path, quiet=False)
+    except Exception as e:
+        st.error(f"Error downloading model: {e}")
+    
     return model_output_path
 
 # Initialize session state
@@ -47,6 +50,7 @@ def speak_text(text):
     filename = "temp.mp3"
     tts.save(filename)
     os.system(f"start {filename}")  # Use 'start' for Windows, 'open' for macOS, and 'xdg-open' for Linux
+    os.remove(filename)  # Cleanup the temporary audio file
 
 # Function to capture voice input using speech recognition
 def capture_voice_input():
@@ -64,7 +68,7 @@ def capture_voice_input():
         st.write("Sorry, I could not understand the audio.")
     except sr.RequestError as e:
         st.write(f"Could not request results; {e}")
-    
+
     return None
 
 # Function to handle the conversation with the chatbot
@@ -126,7 +130,8 @@ def create_conversational_chain(vector_store):
             n_ctx=4096
         )
     except Exception as e:
-        raise
+        st.error(f"Error creating LLM: {e}")
+        return None  # Return None if an error occurs
 
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
@@ -140,7 +145,7 @@ def create_conversational_chain(vector_store):
 
 # Add custom CSS styling
 def add_custom_css():
-    st.markdown("""
+    st.markdown(""" 
     <style>
     .stApp {
         background-image: url('https://cdn.pixabay.com/photo/2024/02/17/09/39/cat-8579018_1280.jpg');
@@ -176,17 +181,16 @@ def main():
         text = []
         for file in uploaded_files:
             file_extension = os.path.splitext(file.name)[1]
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            with tempfile.NamedTemporaryFile(delete=True) as temp_file:  # Ensure the temp file is deleted
                 temp_file.write(file.read())
                 temp_file_path = temp_file.name
 
-            loader = None
-            if file_extension == ".pdf":
-                loader = PyPDFLoader(temp_file_path)
+                loader = None
+                if file_extension == ".pdf":
+                    loader = PyPDFLoader(temp_file_path)
 
-            if loader:
-                text.extend(loader.load())
-                os.remove(temp_file_path)
+                if loader:
+                    text.extend(loader.load())
 
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=20)
         text_chunks = text_splitter.split_documents(text)
