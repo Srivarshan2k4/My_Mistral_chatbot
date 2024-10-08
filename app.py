@@ -10,8 +10,8 @@ from langchain.document_loaders import PyPDFLoader
 import os
 import tempfile
 import speech_recognition as sr
-import pyttsx3
 import gdown
+from gtts import gTTS
 
 def download_model_from_gdrive():
     model_output_path = './models/mistral_model.gguf'
@@ -41,11 +41,12 @@ def initialize_session_state():
         st.session_state['vector_store'] = None  # Initialize vector store
         st.session_state['chain'] = None  # Initialize chain
 
-# Initialize pyttsx3 for text-to-speech
-def init_tts():
-    engine = pyttsx3.init()
-    return engine
-
+# Function to use gTTS to read the chatbot's response
+def speak(text):
+    tts = gTTS(text=text, lang='en')
+    tts.save("response.mp3")
+    os.system("mpg321 response.mp3")  # You might need to adapt this line to play audio
+    
 # Function to use TTS to read the chatbot's response
 def speak_text(text, tts_engine):
     tts_engine.say(text)
