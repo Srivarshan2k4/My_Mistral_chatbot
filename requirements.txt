@@ -17,4 +17,9 @@ pyttsx3
 transformers
 requests
 llama-cpp-python
-
+meson-python
+meson
+wheel
+Cython
+numpy
+versioneer
