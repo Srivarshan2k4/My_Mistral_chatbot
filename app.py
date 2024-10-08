@@ -10,7 +10,7 @@ from langchain.document_loaders import PyPDFLoader
 import os
 import tempfile
 import speech_recognition as sr
-from gtts import gTTS
+import pyttsx3
 import gdown
 
 def download_model_from_gdrive():
@@ -21,11 +21,8 @@ def download_model_from_gdrive():
         os.makedirs('./models')
 
     gdrive_url = 'https://drive.google.com/uc?id=1cJmfRMF_d0TkkaAYbEf_1SieEAJLaDAn'
-    try:
-        gdown.download(gdrive_url, model_output_path, quiet=False)
-    except Exception as e:
-        st.error(f"Error downloading model: {e}")
-    
+    gdown.download(gdrive_url, model_output_path, quiet=False)
+
     return model_output_path
 
 # Initialize session state
@@ -44,13 +41,15 @@ def initialize_session_state():
         st.session_state['vector_store'] = None  # Initialize vector store
         st.session_state['chain'] = None  # Initialize chain
 
+# Initialize pyttsx3 for text-to-speech
+def init_tts():
+    engine = pyttsx3.init()
+    return engine
+
 # Function to use TTS to read the chatbot's response
-def speak_text(text):
-    tts = gTTS(text=text, lang='en')
-    filename = "temp.mp3"
-    tts.save(filename)
-    os.system(f"start {filename}")  # Use 'start' for Windows, 'open' for macOS, and 'xdg-open' for Linux
-    os.remove(filename)  # Cleanup the temporary audio file
+def speak_text(text, tts_engine):
+    tts_engine.say(text)
+    tts_engine.runAndWait()
 
 # Function to capture voice input using speech recognition
 def capture_voice_input():
@@ -68,7 +67,7 @@ def capture_voice_input():
         st.write("Sorry, I could not understand the audio.")
     except sr.RequestError as e:
         st.write(f"Could not request results; {e}")
-
+    
     return None
 
 # Function to handle the conversation with the chatbot
@@ -78,7 +77,7 @@ def conversation_chat(query, chain, history):
     return result["answer"]
 
 # Display the chat history and manage user input (text and voice)
-def display_chat_history(chain):
+def display_chat_history(chain, tts_engine):
     reply_container = st.container()
     container = st.container()
 
@@ -114,7 +113,7 @@ def display_chat_history(chain):
 
                 # Add speaker icon for TTS output
                 if st.button("🔊", key=f"tts_button_{i}"):
-                    speak_text(bot_response)  # Use TTS to read the response
+                    speak_text(bot_response, tts_engine)  # Use TTS to read the response
 
 # Create a conversational chain for the chatbot
 def create_conversational_chain(vector_store):
@@ -130,8 +129,7 @@ def create_conversational_chain(vector_store):
             n_ctx=4096
         )
     except Exception as e:
-        st.error(f"Error creating LLM: {e}")
-        return None  # Return None if an error occurs
+        raise
 
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
@@ -145,7 +143,7 @@ def create_conversational_chain(vector_store):
 
 # Add custom CSS styling
 def add_custom_css():
-    st.markdown(""" 
+    st.markdown("""
     <style>
     .stApp {
         background-image: url('https://cdn.pixabay.com/photo/2024/02/17/09/39/cat-8579018_1280.jpg');
@@ -168,43 +166,67 @@ def add_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
+# Function to process uploaded files
+def process_uploaded_files(uploaded_files):
+    text = []
+    for file in uploaded_files:
+        file_extension = os.path.splitext(file.name)[1]
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(file.read())
+            temp_file_path = temp_file.name  # Store the file path for later deletion
+
+        # Ensure file is explicitly closed before processing
+        temp_file.close()
+
+        loader = None
+        if file_extension == ".pdf":
+            loader = PyPDFLoader(temp_file_path)  # Process the PDF file
+        
+        # Load and process the file if the loader was created
+        if loader:
+            text.extend(loader.load())
+
+        # Ensure the file is closed before trying to delete it
+        try:
+            os.remove(temp_file_path)  # Attempt to delete the temporary file
+        except OSError as e:
+            st.write(f"Error deleting file {temp_file_path}: {e}")
+
+    return text
+
 # Main function
 def main():
     initialize_session_state()
     add_custom_css()  # Add custom CSS for "The Boys" theme
     st.title("Multi-PDF ChatBot using Mistral-7B-Instruct :books:")
     
+    tts_engine = init_tts()  # Initialize the TTS engine
+
     st.sidebar.title("Document Processing")
     uploaded_files = st.sidebar.file_uploader("Upload files", accept_multiple_files=True)
 
     if uploaded_files:
-        text = []
-        for file in uploaded_files:
-            file_extension = os.path.splitext(file.name)[1]
-            with tempfile.NamedTemporaryFile(delete=True) as temp_file:  # Ensure the temp file is deleted
-                temp_file.write(file.read())
-                temp_file_path = temp_file.name
+        # Process uploaded files
+        text = process_uploaded_files(uploaded_files)
 
-                loader = None
-                if file_extension == ".pdf":
-                    loader = PyPDFLoader(temp_file_path)
-
-                if loader:
-                    text.extend(loader.load())
-
+        # Split text into chunks
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=20)
         text_chunks = text_splitter.split_documents(text)
 
+        # Initialize embeddings and vector store
         if st.session_state['embeddings'] is None:
-            st.session_state['embeddings'] = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2", model_kwargs={'device': 'cpu'})
+            st.session_state['embeddings'] = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
         if st.session_state['vector_store'] is None:
             st.session_state['vector_store'] = FAISS.from_documents(text_chunks, embedding=st.session_state['embeddings'])
 
+        # Initialize the conversational chain
         if st.session_state['chain'] is None:
             st.session_state['chain'] = create_conversational_chain(st.session_state['vector_store'])
 
-        display_chat_history(st.session_state['chain'])  # No need to pass TTS engine anymore
+        # Display chat history and handle conversation
+        display_chat_history(st.session_state['chain'], tts_engine)  # Pass TTS engine to the chat history display
 
 if __name__ == "__main__":
     main()
