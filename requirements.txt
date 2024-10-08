@@ -16,4 +16,4 @@ huggingface-hub
 pyttsx3
 transformers
 requests
-
+llama-cpp-python
