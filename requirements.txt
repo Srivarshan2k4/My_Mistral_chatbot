@@ -11,7 +11,6 @@ gtts==2.2.3
 pypdf
 torch
 accelerate
-pyttsx3
 tiktoken
 huggingface-hub
 transformers
