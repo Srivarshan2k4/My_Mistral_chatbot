@@ -11,6 +11,7 @@ import os
 import tempfile
 import speech_recognition as sr
 import gdown
+import pyttsx3
 from gtts import gTTS
 
 def download_model_from_gdrive():
@@ -40,6 +41,14 @@ def initialize_session_state():
         st.session_state['embeddings'] = None  # Initialize embeddings
         st.session_state['vector_store'] = None  # Initialize vector store
         st.session_state['chain'] = None  # Initialize chain
+
+def init_tts():
+    try:
+        engine = pyttsx3.init()
+        return engine
+    except RuntimeError:
+        print("eSpeak not available, using gTTS instead.")
+        return None
 
 # Function to use gTTS to read the chatbot's response
 def speak(text):
