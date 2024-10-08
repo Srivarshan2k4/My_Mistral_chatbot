@@ -13,6 +13,7 @@ torch
 accelerate
 tiktoken
 huggingface-hub
+pyttsx3
 transformers
 requests
 
