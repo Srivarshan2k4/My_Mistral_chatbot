@@ -9,7 +9,6 @@ sentence-transformers
 langchain-community
 gtts==2.2.3
 pypdf
-torch
 accelerate
 tiktoken
 huggingface-hub
