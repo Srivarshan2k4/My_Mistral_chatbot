@@ -17,4 +17,4 @@ pyttsx3
 transformers
 requests
 llama-cpp-python
---upgrade pip
+
